@@ -35,6 +35,7 @@ var _ renderer.Renderer = &Renderer{}
 // Render is reusable across Renders, it holds configuration only.
 type Renderer struct {
 	underlineHeadings bool
+	hardWrapWidth     int
 }
 
 func (mr *Renderer) AddOptions(...renderer.Option) {
@@ -52,6 +53,12 @@ type Option func(r *Renderer)
 func WithUnderlineHeadings() Option {
 	return func(r *Renderer) {
 		r.underlineHeadings = true
+	}
+}
+
+func WithHardWrapWidth(lineWidth int) Option {
+	return func(r *Renderer) {
+		r.hardWrapWidth = lineWidth
 	}
 }
 
@@ -123,12 +130,21 @@ func (r *render) renderNode(node ast.Node, entering bool) (ast.WalkStatus, error
 				// Nothing to render.
 				break
 			}
+			if r.mr.hardWrapWidth != 0 {
+				wrapClean := wordWrap(clean, r.mr.hardWrapWidth)
+				_, _ = r.w.Write(wrapClean)
+				break
+			}
 			_, _ = r.w.Write(clean)
 			break
 		}
 
 		if tnode.SoftLineBreak() {
-			_, _ = r.w.Write(spaceChar)
+			char := spaceChar
+			if r.mr.hardWrapWidth != 0 {
+				char = newLineChar
+			}
+			_, _ = r.w.Write(char)
 		}
 
 		if tnode.HardLineBreak() {
@@ -370,4 +386,28 @@ func cleanWithoutTrim(b []byte) []byte {
 		}
 	}
 	return ret
+}
+
+// wordWrap wraps text to given lineWidth.
+func wordWrap(text []byte, lineWidth int) []byte {
+	words := bytes.Fields(bytes.TrimSpace(text))
+	if len(words) == 0 {
+		return text
+	}
+	var wrapped []byte
+	spaceLeft := lineWidth
+	for _, word := range words {
+		if len(word)+1 > spaceLeft {
+			word = append(newLineChar, word...)
+			wrapped = append(wrapped, word...)
+			spaceLeft = lineWidth - len(word)
+		} else {
+			if spaceLeft != lineWidth {
+				word = append(spaceChar, word...)
+			}
+			wrapped = append(wrapped, word...)
+			spaceLeft -= 1 + len(word)
+		}
+	}
+	return wrapped
 }

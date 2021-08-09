@@ -23,6 +23,7 @@ var (
 	write             = flag.Bool("w", false, "write result to (source) file instead of stdout")
 	doDiff            = flag.Bool("d", false, "display diffs instead of rewriting files")
 	underlineHeadings = flag.Bool("u", false, "write underline headings instead of hashes for levels 1 and 2")
+	hardWrapWidth     = flag.Int("h", 0, "hard wrap lines to given width")
 
 	exitCode = 0
 )
@@ -61,6 +62,9 @@ func processFile(filename string, in io.Reader, out io.Writer) error {
 	var opts []markdown.Option
 	if *underlineHeadings {
 		opts = append(opts, markdown.WithUnderlineHeadings())
+	}
+	if *hardWrapWidth != 0 {
+		opts = append(opts, markdown.WithHardWrapWidth(*hardWrapWidth))
 	}
 	res, err := markdownfmt.Process(filename, src, opts...)
 	if err != nil {
